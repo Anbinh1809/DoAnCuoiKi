@@ -114,11 +114,11 @@ public class BanHangServlet extends HttpServlet {
                     ct.setProductId(pid);
                     int ctId = chiTietDAO.createAndGetId(ct);
 
-                    // Lưu topping cho từng item (nếu có)
-                    String toppingForItem = request.getParameter("toppings_" + i);
-                    if (toppingForItem != null && !toppingForItem.isEmpty()) {
-                        for (String tid : toppingForItem.split(",")) {
-                            if (!tid.trim().isEmpty()) {
+                    // Giao diện POS hiện tại gửi toppingIds[] chung cho toàn hóa đơn (không phân biệt từng món)
+                    // Nên ta sẽ gắn toàn bộ các topping đã chọn vào món ăn đầu tiên (i = 0)
+                    if (i == 0 && toppingIdsArr != null) {
+                        for (String tid : toppingIdsArr) {
+                            if (tid != null && !tid.trim().isEmpty()) {
                                 chiTietDAO.addTopping(ctId, Integer.parseInt(tid.trim()), 1);
                             }
                         }

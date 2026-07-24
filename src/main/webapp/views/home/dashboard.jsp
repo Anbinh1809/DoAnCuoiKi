@@ -60,6 +60,16 @@
             </div>
         </div>
 
+        <!-- REVENUE CHART -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar" style="color:#f59e0b;margin-right:8px"></i>Doanh Thu 7 Ngày Qua (Chi Tiết Theo Ca / Nhân Viên)</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="revenueChart" height="80"></canvas>
+            </div>
+        </div>
+
         <!-- RECENT ORDERS -->
         <div class="card">
             <div class="card-header">
@@ -87,9 +97,18 @@
                             <td>
                                 <c:choose>
                                     <c:when test="${not empty dh.tenLoaiThe}">
-                                        <i class="fas fa-credit-card" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                        <c:choose>
+                                            <c:when test="${dh.tenLoaiThe.contains('Momo') || dh.tenLoaiThe.contains('Chuyển')}">
+                                                <i class="fas fa-qrcode" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <i class="fas fa-money-bill-wave" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </c:when>
-                                    <c:otherwise><span style="color:#aaa">Không xác định</span></c:otherwise>
+                                    <c:otherwise>
+                                        <i class="fas fa-money-bill-wave" style="color:#f59e0b;margin-right:4px"></i>Tiền mặt
+                                    </c:otherwise>
                                 </c:choose>
                             </td>
                             <td class="money-cell">
@@ -129,4 +148,50 @@
         </div>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        const revenueChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ${chartLabels},
+                datasets: ${chartDatasets}
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('vi-VN').format(context.parsed.y) + ' đ';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true
+                    },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return new Intl.NumberFormat('vi-VN').format(value) + ' đ';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
 </body></html>

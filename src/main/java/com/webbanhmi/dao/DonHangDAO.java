@@ -37,15 +37,12 @@ public class DonHangDAO implements CrudDAO<DonHang, Integer> {
     @Override
     public List<DonHang> findAll() {
         String sql = "SELECT dh.id, dh.ma_so_don_hang, dh.ngay_tao, " +
-                     "ISNULL(SUM(ct.gia_ban), dh.tong_tien) AS tong_tien, " +
+                     "dh.tong_tien, " +
                      "dh.trang_thai, dh.id_nhan_vien, dh.id_the, " +
                      "nv.ho_ten as ten_nhan_vien, ttt.ten_loai_the " +
                      "FROM don_hang dh " +
                      "LEFT JOIN nhan_vien nv ON dh.id_nhan_vien = nv.id " +
                      "LEFT JOIN the_thanh_toan ttt ON dh.id_the = ttt.id " +
-                     "LEFT JOIN chi_tiet_don_hang ct ON ct.order_id = dh.id " +
-                     "GROUP BY dh.id, dh.ma_so_don_hang, dh.ngay_tao, dh.tong_tien, " +
-                     "dh.trang_thai, dh.id_nhan_vien, dh.id_the, nv.ho_ten, ttt.ten_loai_the " +
                      "ORDER BY dh.ngay_tao DESC";
         return findBySql(sql);
     }
@@ -53,16 +50,13 @@ public class DonHangDAO implements CrudDAO<DonHang, Integer> {
     @Override
     public DonHang findById(Integer id) {
         String sql = "SELECT dh.id, dh.ma_so_don_hang, dh.ngay_tao, " +
-                     "ISNULL(SUM(ct.gia_ban), dh.tong_tien) AS tong_tien, " +
+                     "dh.tong_tien, " +
                      "dh.trang_thai, dh.id_nhan_vien, dh.id_the, " +
                      "nv.ho_ten as ten_nhan_vien, ttt.ten_loai_the " +
                      "FROM don_hang dh " +
                      "LEFT JOIN nhan_vien nv ON dh.id_nhan_vien = nv.id " +
                      "LEFT JOIN the_thanh_toan ttt ON dh.id_the = ttt.id " +
-                     "LEFT JOIN chi_tiet_don_hang ct ON ct.order_id = dh.id " +
-                     "WHERE dh.id=? " +
-                     "GROUP BY dh.id, dh.ma_so_don_hang, dh.ngay_tao, dh.tong_tien, " +
-                     "dh.trang_thai, dh.id_nhan_vien, dh.id_the, nv.ho_ten, ttt.ten_loai_the";
+                     "WHERE dh.id=?";
         List<DonHang> list = findBySql(sql, id);
         return list.isEmpty() ? null : list.get(0);
     }
@@ -106,17 +100,41 @@ public class DonHangDAO implements CrudDAO<DonHang, Integer> {
 
     public List<DonHang> thongKeTheoNgay(String tuNgay, String denNgay) {
         String sql = "SELECT dh.id, dh.ma_so_don_hang, dh.ngay_tao, " +
-                     "ISNULL(SUM(ct.gia_ban), dh.tong_tien) AS tong_tien, " +
+                     "dh.tong_tien, " +
                      "dh.trang_thai, dh.id_nhan_vien, dh.id_the, " +
                      "nv.ho_ten as ten_nhan_vien, ttt.ten_loai_the " +
                      "FROM don_hang dh " +
                      "LEFT JOIN nhan_vien nv ON dh.id_nhan_vien = nv.id " +
                      "LEFT JOIN the_thanh_toan ttt ON dh.id_the = ttt.id " +
-                     "LEFT JOIN chi_tiet_don_hang ct ON ct.order_id = dh.id " +
                      "WHERE CAST(dh.ngay_tao AS DATE) BETWEEN ? AND ? " +
-                     "GROUP BY dh.id, dh.ma_so_don_hang, dh.ngay_tao, dh.tong_tien, " +
-                     "dh.trang_thai, dh.id_nhan_vien, dh.id_the, nv.ho_ten, ttt.ten_loai_the " +
                      "ORDER BY dh.ngay_tao DESC";
         return findBySql(sql, tuNgay, denNgay);
+    }
+
+    public List<DonHang> thongKeTheoNgayVaNhanVien(String tuNgay, String denNgay, int nhanVienId) {
+        String sql = "SELECT dh.id, dh.ma_so_don_hang, dh.ngay_tao, " +
+                     "dh.tong_tien, " +
+                     "dh.trang_thai, dh.id_nhan_vien, dh.id_the, " +
+                     "nv.ho_ten as ten_nhan_vien, ttt.ten_loai_the " +
+                     "FROM don_hang dh " +
+                     "LEFT JOIN nhan_vien nv ON dh.id_nhan_vien = nv.id " +
+                     "LEFT JOIN the_thanh_toan ttt ON dh.id_the = ttt.id " +
+                     "WHERE CAST(dh.ngay_tao AS DATE) BETWEEN ? AND ? " +
+                     "AND dh.id_nhan_vien = ? " +
+                     "ORDER BY dh.ngay_tao DESC";
+        return findBySql(sql, tuNgay, denNgay, nhanVienId);
+    }
+
+    public List<DonHang> findByNhanVienId(int nhanVienId) {
+        String sql = "SELECT dh.id, dh.ma_so_don_hang, dh.ngay_tao, " +
+                     "dh.tong_tien, " +
+                     "dh.trang_thai, dh.id_nhan_vien, dh.id_the, " +
+                     "nv.ho_ten as ten_nhan_vien, ttt.ten_loai_the " +
+                     "FROM don_hang dh " +
+                     "LEFT JOIN nhan_vien nv ON dh.id_nhan_vien = nv.id " +
+                     "LEFT JOIN the_thanh_toan ttt ON dh.id_the = ttt.id " +
+                     "WHERE dh.id_nhan_vien = ? " +
+                     "ORDER BY dh.ngay_tao DESC";
+        return findBySql(sql, nhanVienId);
     }
 }

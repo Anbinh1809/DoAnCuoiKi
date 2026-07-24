@@ -19,6 +19,22 @@
 .topping-chip input { display: none; }
 .topping-chip.active { border-color: #f59e0b; background: #fef9c3; color: #d97706; font-weight: 600; }
 
+/* Category tabs & Search */
+.cat-tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.cat-tab { padding: 6px 14px; border-radius: 20px; background: #f1f5f9; color: #475569; font-size: 13px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s; }
+.cat-tab:hover { background: #e2e8f0; color: #1e293b; }
+.cat-tab.active { background: #f59e0b; color: #fff; box-shadow: 0 2px 8px rgba(245,158,11,0.3); }
+
+.search-wrap { position: relative; margin-bottom: 14px; }
+.search-wrap i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
+.search-wrap input { padding-left: 38px; border-radius: 10px; border: 1.5px solid #cbd5e1; }
+.search-wrap input:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.15); }
+
+/* Note tags */
+.note-badge { font-size: 11px; color: #d97706; background: #fef3c7; border: 1px solid #fde68a; padding: 2px 8px; border-radius: 6px; margin-top: 4px; display: inline-block; cursor: pointer; }
+.note-btn { background: none; border: none; color: #94a3b8; font-size: 14px; cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: 0.2s; }
+.note-btn:hover { color: #f59e0b; background: #fffbeb; }
+
 /* ===== INLINE PAYMENT SECTION ===== */
 #paymentSection { margin-top: 16px; display: none; }
 
@@ -194,14 +210,32 @@
             <!-- LEFT: Chọn sản phẩm -->
             <div>
                 <div class="card">
-                    <div class="card-header"><h5>🥖 Chọn Bánh Mì</h5></div>
+                    <div class="card-header"><h5>🥖 Danh Sách Món Ăn</h5></div>
                     <div class="card-body">
+                        <!-- Search & Tabs Filter -->
+                        <div class="search-wrap">
+                            <i class="fas fa-search"></i>
+                            <input type="text" id="productSearchInput" class="form-control" placeholder="🔍 Tìm kiếm nhanh món ăn..." onkeyup="filterProducts()">
+                        </div>
+                        <div class="cat-tabs">
+                            <button type="button" class="cat-tab active" onclick="setCategory('all', this)">Tất Cả</button>
+                            <button type="button" class="cat-tab" onclick="setCategory('banhmi', this)">🥖 Bánh Mì</button>
+                            <button type="button" class="cat-tab" onclick="setCategory('nuoc', this)">🍹 Nước Uống</button>
+                            <button type="button" class="cat-tab" onclick="setCategory('banhbao', this)">🥟 Bánh Bao / Khác</button>
+                        </div>
+
                         <div class="product-grid">
                             <c:forEach var="sp" items="${listSanPham}">
+                            <c:set var="spNameLower" value="${sp.tenSp.toLowerCase()}"/>
+                            <c:set var="catVal" value="khac"/>
+                            <c:if test="${spNameLower.contains('bánh mì') || spNameLower.contains('bánh mỳ')}"><c:set var="catVal" value="banhmi"/></c:if>
+                            <c:if test="${spNameLower.contains('trà') || spNameLower.contains('nước') || spNameLower.contains('cà phê')}"><c:set var="catVal" value="nuoc"/></c:if>
+                            <c:if test="${spNameLower.contains('bánh bao') || spNameLower.contains('há cảo') || spNameLower.contains('hảo cáo')}"><c:set var="catVal" value="banhbao"/></c:if>
                             <div class="product-card"
                                  data-id="${sp.id}"
                                  data-name="<c:out value='${sp.tenSp}'/>"
                                  data-price="${sp.giaCoBan}"
+                                 data-cat="${catVal}"
                                  onclick="addToOrderFromCard(this)">
                                 <div class="name">${sp.tenSp}</div>
                                 <div class="price"><fmt:formatNumber value="${sp.giaCoBan}" pattern="#,###"/>đ</div>
@@ -238,8 +272,14 @@
                         Tổng cộng: <span id="totalAmount">0</span> đ
                     </div>
 
+                    <!-- Ghi chú cho hóa đơn -->
+                    <div class="form-group" style="margin-top:14px">
+                        <label class="form-label"><i class="fas fa-sticky-note" style="color:#f59e0b;margin-right:4px"></i>Ghi Chú Cho Hóa Đơn</label>
+                        <input type="text" id="orderGeneralNote" class="form-control" placeholder="Ghi chú chung (vd: không cay, nhiều rau, ít ớt...)">
+                    </div>
+
                     <!-- Phương thức thanh toán -->
-                    <div class="form-group" style="margin-top:16px">
+                    <div class="form-group" style="margin-top:14px">
                         <label class="form-label">Phương Thức Thanh Toán</label>
                         <select class="form-control" id="paymentMethod" onchange="onPaymentChange()">
                             <option value="" data-name="">-- Không chọn --</option>
@@ -328,6 +368,35 @@
     </div>
 </div>
 
+<!-- ========== MODAL GHI CHÚ MÓN ========== -->
+<div class="modal-overlay" id="noteModal">
+    <div class="modal-box" style="max-width: 400px; text-align: left;">
+        <button class="modal-close-btn" onclick="closeNoteModal()">&times;</button>
+        <h5 style="margin-top:0; font-weight:700; color:#1a1a2e; margin-bottom:6px;"><i class="fas fa-edit" style="color:#f59e0b; margin-right:8px;"></i>Ghi Chú Món</h5>
+        <div id="noteItemName" style="font-weight:600; font-size:14px; color:#d97706; margin-bottom:14px;"></div>
+        
+        <div style="margin-bottom:14px;">
+            <label style="font-size:12px; color:#888; display:block; margin-bottom:6px;">Ghi chú nhanh:</label>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="appendQuickNote('Không cay')" style="font-size:12px; border-radius:14px;">🌶️ Không cay</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="appendQuickNote('Nhiều rau')" style="font-size:12px; border-radius:14px;">🥬 Nhiều rau</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="appendQuickNote('Không hành')" style="font-size:12px; border-radius:14px;">🧅 Không hành</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="appendQuickNote('Ít ớt')" style="font-size:12px; border-radius:14px;">🌶️ Ít ớt</button>
+                <button type="button" class="btn btn-sm btn-outline-warning" onclick="appendQuickNote('Nhiều pate')" style="font-size:12px; border-radius:14px;">🥓 Nhiều pate</button>
+            </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+            <input type="text" id="noteInput" class="form-control" placeholder="Hoặc tự nhập ghi chú khác...">
+        </div>
+
+        <div style="display:flex; gap:8px;">
+            <button type="button" class="btn btn-primary" onclick="saveItemNote()" style="flex:1;"><i class="fas fa-check"></i> Lưu</button>
+            <button type="button" class="btn btn-secondary" onclick="clearItemNote()" style="flex:1;"><i class="fas fa-trash"></i> Xóa Ghi Chú</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let orderItems = {};
 let totalPrice = 0;
@@ -340,11 +409,73 @@ function addToOrderFromCard(el) {
     addToOrder(id, name, price);
 }
 
+let currentCategory = 'all';
+let currentNoteItemId = null;
+
+function setCategory(cat, btn) {
+    currentCategory = cat;
+    document.querySelectorAll('.cat-tab').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    filterProducts();
+}
+
+function filterProducts() {
+    const input = document.getElementById('productSearchInput');
+    const query = (input ? input.value : '').toLowerCase().trim();
+    document.querySelectorAll('.product-card').forEach(card => {
+        const name = (card.dataset.name || '').toLowerCase();
+        const cat = card.dataset.cat || 'khac';
+        const matchSearch = name.includes(query);
+        const matchCat = (currentCategory === 'all' || cat === currentCategory);
+        card.style.display = (matchSearch && matchCat) ? 'block' : 'none';
+    });
+}
+
+function openNoteModal(id) {
+    currentNoteItemId = id;
+    const item = orderItems[id];
+    if (!item) return;
+    document.getElementById('noteItemName').textContent = 'Món: ' + item.name;
+    document.getElementById('noteInput').value = item.note || '';
+    document.getElementById('noteModal').classList.add('active');
+}
+
+function closeNoteModal() {
+    document.getElementById('noteModal').classList.remove('active');
+}
+
+function appendQuickNote(text) {
+    const input = document.getElementById('noteInput');
+    if (input.value.trim() === '') {
+        input.value = text;
+    } else {
+        if (!input.value.includes(text)) {
+            input.value += ', ' + text;
+        }
+    }
+}
+
+function saveItemNote() {
+    if (currentNoteItemId && orderItems[currentNoteItemId]) {
+        orderItems[currentNoteItemId].note = document.getElementById('noteInput').value.trim();
+        renderOrder();
+    }
+    closeNoteModal();
+}
+
+function clearItemNote() {
+    if (currentNoteItemId && orderItems[currentNoteItemId]) {
+        orderItems[currentNoteItemId].note = '';
+        renderOrder();
+    }
+    closeNoteModal();
+}
+
 function addToOrder(id, name, price) {
     if (orderItems[id]) {
         orderItems[id].qty++;
     } else {
-        orderItems[id] = { id, name, price, qty: 1 };
+        orderItems[id] = { id, name, price, qty: 1, note: '' };
     }
     renderOrder();
 }
@@ -388,26 +519,47 @@ function renderOrder() {
         const itemTotal = item.price * item.qty;
         totalPrice += itemTotal;
 
+        const noteBtnOrBadge = item.note 
+            ? `<div class="note-badge" onclick="openNoteModal('\${id}')" title="Bấm để sửa ghi chú"><i class="fas fa-edit"></i> \${item.note}</div>` 
+            : `<button type="button" onclick="openNoteModal('\${id}')" style="background:#fffbeb;border:1px dashed #f59e0b;color:#d97706;font-size:11px;padding:2px 8px;border-radius:6px;margin-top:4px;cursor:pointer;"><i class="fas fa-plus-circle"></i> Ghi chú món</button>`;
+
         const div = document.createElement('div');
         div.className = 'order-item';
         div.innerHTML = `
             <div>
                 <div style="font-weight:600;font-size:14px">\${item.name}</div>
                 <div style="color:#888;font-size:12px">\${item.price.toLocaleString('vi-VN')}đ x \${item.qty}</div>
+                \${noteBtnOrBadge}
             </div>
-            <div style="display:flex;align-items:center;gap:8px">
-                <button type="button" onclick="changeQty(\${id},-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;background:#fff">-</button>
+            <div style="display:flex;align-items:center;gap:6px">
+                <button type="button" onclick="changeQty('\${id}',-1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;background:#fff">-</button>
                 <strong>\${item.qty}</strong>
-                <button type="button" onclick="changeQty(\${id},1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;background:#fff">+</button>
+                <button type="button" onclick="changeQty('\${id}',1)" style="width:24px;height:24px;border:1px solid #ddd;border-radius:50%;cursor:pointer;background:#fff">+</button>
                 <span style="color:#f59e0b;font-weight:700;min-width:70px;text-align:right">\${itemTotal.toLocaleString('vi-VN')}đ</span>
-                <button type="button" onclick="removeFromOrder(\${id})" style="color:#ef4444;border:none;background:none;cursor:pointer;font-size:16px">✕</button>
+                <button type="button" onclick="removeFromOrder('\${id}')" style="color:#ef4444;border:none;background:none;cursor:pointer;font-size:16px">✕</button>
             </div>`;
         container.appendChild(div);
     }
 
-    // Cộng topping
+    // Cộng topping và hiển thị trên hóa đơn
     document.querySelectorAll('.topping-cb:checked').forEach(cb => {
-        totalPrice += parseInt(cb.dataset.price);
+        const price = parseInt(cb.dataset.price);
+        totalPrice += price;
+        
+        const labelText = cb.closest('label').textContent.trim();
+        const tName = labelText.split('(')[0].trim();
+        
+        const div = document.createElement('div');
+        div.className = 'order-item';
+        div.innerHTML = `
+            <div>
+                <div style="font-weight:600;font-size:14px;color:#d97706">+ Topping: \${tName}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#f59e0b;font-weight:700;min-width:70px;text-align:right">\${price.toLocaleString('vi-VN')}đ</span>
+                <button type="button" onclick="toggleTopping(document.querySelector('.topping-cb[data-id=\\'\${cb.dataset.id}\\']').closest('label'))" style="color:#ef4444;border:none;background:none;cursor:pointer;font-size:16px">✕</button>
+            </div>`;
+        container.appendChild(div);
     });
 
     totalDiv.style.display = 'block';
@@ -497,12 +649,19 @@ function buildCashPreview() {
     for (let id in orderItems) {
         const item = orderItems[id];
         html += `<div class="inv-row"><span>\${item.name} x\${item.qty}</span><span>\${(item.price * item.qty).toLocaleString('vi-VN')}đ</span></div>`;
+        if (item.note) {
+            html += `<div class="inv-row" style="font-size:11px;color:#d97706;padding-left:10px"><span>  ↳ Ghi chú: \${item.note}</span></div>`;
+        }
     }
     document.querySelectorAll('.topping-cb:checked').forEach(cb => {
         const label = cb.closest('label').textContent.trim();
         const price = parseInt(cb.dataset.price);
         html += `<div class="inv-row"><span>Topping: \${label.split('(')[0].trim()}</span><span>+\${price.toLocaleString('vi-VN')}đ</span></div>`;
     });
+    const generalNote = (document.getElementById('orderGeneralNote') ? document.getElementById('orderGeneralNote').value.trim() : '');
+    if (generalNote) {
+        html += `<div class="inv-row" style="font-size:12px;color:#d97706;padding-top:4px;border-top:1px dashed #eee"><span>📝 Ghi chú chung: \${generalNote}</span></div>`;
+    }
     html += `<div class="inv-row"><span>Tổng cộng</span><span>\${totalPrice.toLocaleString('vi-VN')} đ</span></div>`;
     document.getElementById('cashInvoicePreview').innerHTML = html;
 }

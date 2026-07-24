@@ -27,7 +27,7 @@
 
         <!-- Bộ lọc ngày -->
         <div class="card">
-            <div class="card-header"><h5><i class="fas fa-filter" style="color:#f59e0b;margin-right:8px"></i>Lọc Theo Thời Gian</h5></div>
+            <div class="card-header"><h5><i class="fas fa-filter" style="color:#f59e0b;margin-right:8px"></i>Bộ Lọc Báo Cáo</h5></div>
             <div class="card-body">
                 <form method="get" action="${pageContext.request.contextPath}/thongke" style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">
                     <div class="form-group" style="margin:0;flex:1">
@@ -38,6 +38,19 @@
                         <label class="form-label">Đến Ngày</label>
                         <input type="date" name="denNgay" class="form-control" value="${denNgay}">
                     </div>
+                    <c:if test="${isAdmin}">
+                    <div class="form-group" style="margin:0;flex:1">
+                        <label class="form-label">Nhân Viên</label>
+                        <select name="nhanVienId" class="form-control">
+                            <option value="0">-- Tất Cả Nhân Viên --</option>
+                            <c:forEach var="nv" items="${listNhanVien}">
+                                <option value="${nv.id}" ${nhanVienId == nv.id ? 'selected' : ''}>
+                                    <c:out value="${nv.hoTen}"/>
+                                </option>
+                            </c:forEach>
+                        </select>
+                    </div>
+                    </c:if>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Xem Báo Cáo</button>
                     <a href="${pageContext.request.contextPath}/thongke" class="btn btn-secondary">Reset</a>
                 </form>
@@ -89,6 +102,7 @@
                             <th>Phương Thức TT</th>
                             <th>Trạng Thái</th>
                             <th style="text-align:right">Tổng Tiền</th>
+                            <th style="width: 80px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -101,9 +115,18 @@
                             <td>
                                 <c:choose>
                                     <c:when test="${not empty dh.tenLoaiThe}">
-                                        <i class="fas fa-credit-card" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                        <c:choose>
+                                            <c:when test="${dh.tenLoaiThe.contains('Momo') || dh.tenLoaiThe.contains('Chuyển')}">
+                                                <i class="fas fa-qrcode" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                            </c:when>
+                                            <c:otherwise>
+                                                <i class="fas fa-money-bill-wave" style="color:#f59e0b;margin-right:4px"></i><c:out value="${dh.tenLoaiThe}"/>
+                                            </c:otherwise>
+                                        </c:choose>
                                     </c:when>
-                                    <c:otherwise><span style="color:#aaa">Không xác định</span></c:otherwise>
+                                    <c:otherwise>
+                                        <i class="fas fa-money-bill-wave" style="color:#f59e0b;margin-right:4px"></i>Tiền mặt
+                                    </c:otherwise>
                                 </c:choose>
                             </td>
                             <td>
@@ -118,6 +141,9 @@
                             </td>
                             <td class="money-cell" style="text-align:right">
                                 <fmt:formatNumber value="${dh.tongTien}" pattern="#,###"/> đ
+                            </td>
+                            <td style="text-align:center">
+                                <button type="button" class="btn btn-sm btn-info" onclick="viewInvoiceDetail(${dh.id})" style="padding: 4px 10px; font-size: 12px; border-radius: 6px; color: #fff; background: #0ea5e9; border: none; cursor: pointer; transition: 0.2s;"><i class="fas fa-eye"></i> Xem</button>
                             </td>
                         </tr>
                         </c:forEach>
@@ -143,4 +169,43 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Chi tiết Hóa Đơn -->
+<div class="modal-overlay" id="invoiceDetailModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center; backdrop-filter: blur(4px);">
+    <div class="modal-box" style="background:#fff; border-radius:16px; padding:24px; max-width:550px; width:92%; position:relative; box-shadow:0 24px 60px rgba(0,0,0,0.3); animation: modalSlideIn 0.3s ease;">
+        <button onclick="document.getElementById('invoiceDetailModal').style.display='none'" style="position:absolute; top:16px; right:20px; background:none; border:none; font-size:24px; cursor:pointer; color:#999; transition: 0.2s;" onmouseover="this.style.color='#333'" onmouseout="this.style.color='#999'">&times;</button>
+        <h5 style="margin-top:0; border-bottom:2px solid #f0f0f0; padding-bottom:12px; margin-bottom:16px; font-weight:700; color: #1a1a2e; font-size: 18px;"><i class="fas fa-list-alt" style="color:#f59e0b; margin-right:8px;"></i>Chi Tiết Hóa Đơn</h5>
+        <div id="invoiceDetailContent">
+            <div style="text-align:center; padding:40px; color:#999;"><i class="fas fa-spinner fa-spin fa-3x"></i><br><br>Đang tải dữ liệu...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+function viewInvoiceDetail(id) {
+    var modal = document.getElementById('invoiceDetailModal');
+    var contentDiv = document.getElementById('invoiceDetailContent');
+    
+    modal.style.display = 'flex';
+    contentDiv.innerHTML = '<div style="text-align:center; padding:40px; color:#999;"><i class="fas fa-spinner fa-spin fa-3x"></i><br><br>Đang tải dữ liệu...</div>';
+    
+    fetch('${pageContext.request.contextPath}/thongke/detail?id=' + id)
+        .then(response => {
+            if (!response.ok) throw new Error("Lỗi tải dữ liệu");
+            return response.text();
+        })
+        .then(html => {
+            contentDiv.innerHTML = html;
+        })
+        .catch(error => {
+            contentDiv.innerHTML = '<div style="text-align:center; padding:40px; color:#ef4444;"><i class="fas fa-exclamation-circle fa-3x"></i><br><br>Lỗi khi tải chi tiết hóa đơn. Vui lòng thử lại.</div>';
+            console.error(error);
+        });
+}
+// Đóng modal khi click ra ngoài
+document.getElementById('invoiceDetailModal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+});
+</script>
+
 </body></html>
