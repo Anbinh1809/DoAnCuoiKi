@@ -36,7 +36,7 @@ public class NhanVienDAO implements CrudDAO<NhanVien, Integer> {
 
     @Override
     public int delete(Integer id) {
-        String sql = "UPDATE nhan_vien SET active=0 WHERE id=?"; // Xóa mềm (Soft delete)
+        String sql = "UPDATE nhan_vien SET active=0 WHERE id=?"; // Xóa mềm (Soft delete / Disable)
         try {
             return JdbcUtil.executeUpdate(sql, id);
         } catch (Exception e) {
@@ -45,16 +45,38 @@ public class NhanVienDAO implements CrudDAO<NhanVien, Integer> {
         return 0;
     }
 
+    public int toggleActive(Integer id) {
+        String sql = "UPDATE nhan_vien SET active = CASE WHEN active = 1 THEN 0 ELSE 1 END WHERE id=?";
+        try {
+            return JdbcUtil.executeUpdate(sql, id);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    public boolean hardDelete(Integer id) {
+        String sql = "DELETE FROM nhan_vien WHERE id=?";
+        try {
+            int rows = JdbcUtil.executeUpdate(sql, id);
+            return rows > 0;
+        } catch (Exception e) {
+            // Có ràng buộc khóa ngoại (ví dụ đã có đơn hàng) -> chuyển sang soft delete
+            delete(id);
+            return false;
+        }
+    }
+
     @Override
     public List<NhanVien> findAll() {
-        // Lấy tất cả kể cả inactive (dùng cho trang quản lý nhân viên)
-        String sql = "SELECT * FROM nhan_vien";
+        // Lấy tất cả nhân viên sắp xếp theo ID tăng dần
+        String sql = "SELECT * FROM nhan_vien ORDER BY id ASC";
         return findBySql(sql);
     }
 
     /** Chỉ lấy nhân viên đang active (dùng cho dashboard thống kê) */
     public List<NhanVien> findAllActive() {
-        String sql = "SELECT * FROM nhan_vien WHERE active=1";
+        String sql = "SELECT * FROM nhan_vien WHERE active=1 ORDER BY id ASC";
         return findBySql(sql);
     }
 
