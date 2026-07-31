@@ -1,13 +1,12 @@
 -- ============================================================
--- SCRIPT CẬP NHẬT CƠ SỞ DỮ LIỆU WEBBANHMI
--- Dành cho hệ thống đã khởi tạo CSDL trước đó
--- Chạy script này trong SQL Server Management Studio (SSMS)
+-- SCRIPT CẬP NHẬT CƠ SỞ DỮ LIỆU WEBBANHMI (DÀNH CHO MÁY ĐÃ CÓ CSDL)
+-- Chạy file này trên SQL Server Management Studio (SSMS)
 -- ============================================================
 
 USE webbanhmi;
 GO
 
--- 1. Bổ sung cột so_luong_ton cho bảng toppings nếu chưa có
+-- 1. Bổ sung cột so_luong_ton và don_vi_tinh cho bảng toppings nếu chưa có
 IF EXISTS (SELECT * FROM sys.tables WHERE name = 'toppings')
 BEGIN
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('toppings') AND name = 'so_luong_ton')
@@ -15,742 +14,684 @@ BEGIN
         ALTER TABLE toppings ADD so_luong_ton INT NOT NULL DEFAULT 50;
         PRINT N'Đã bổ sung cột so_luong_ton vào bảng toppings.';
     END
-    ELSE
-    BEGIN
-        PRINT N'Cột so_luong_ton đã tồn tại trong bảng toppings.';
-    END
 
-    -- 2. Bổ sung cột don_vi_tinh cho bảng toppings nếu chưa có
     IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('toppings') AND name = 'don_vi_tinh')
     BEGIN
         ALTER TABLE toppings ADD don_vi_tinh NVARCHAR(50) NOT NULL DEFAULT N'Phần';
         PRINT N'Đã bổ sung cột don_vi_tinh vào bảng toppings.';
     END
-    ELSE
-    BEGIN
-        PRINT N'Cột don_vi_tinh đã tồn tại trong bảng toppings.';
-    END
 END
 GO
 
--- 3. Cập nhật tổng tiền hóa đơn bị lưu tong_tien = 0 (nếu có)
-UPDATE dh
-SET dh.tong_tien = sub.tong_thuc
-FROM don_hang dh
-INNER JOIN (
-    SELECT order_id, SUM(gia_ban) AS tong_thuc
-    FROM chi_tiet_don_hang
-    GROUP BY order_id
-    HAVING SUM(gia_ban) > 0
-) sub ON dh.id = sub.order_id
-WHERE dh.tong_tien = 0;
-GO
-
-PRINT N'Cập nhật cơ sở dữ liệu hoàn tất thành công!';
-GO
-
-
--- ============================================================
--- DỮ LIỆU MẪU 7 NGÀY GẦN NHẤT (25/07 - 31/07) CHO DASHBOARD
--- ============================================================
-USE webbanhmi;
-GO
-
--- Bổ sung nhân viên staff1-staff5 nếu chưa có
+-- 2. Đảm bảo có đủ 5 tài khoản nhân viên staff1-staff5 với tên mới chuẩn Unicode
 IF NOT EXISTS (SELECT 1 FROM nhan_vien WHERE ten_dang_nhap = 'staff1')
 BEGIN
     INSERT INTO nhan_vien (ten_dang_nhap, mat_khau, ho_ten, dien_thoai, vai_tro, active) VALUES
-    ('staff1', '123', N'Đặng Phi Hùng', '0901000001', 0, 1),
-    ('staff2', '123', N'Lê Bình An', '0901000002', 0, 1),
-    ('staff3', '123', N'Đinh Ngọc Đại', '0901000003', 0, 1),
-    ('staff4', '123', N'Đinh Tiến Lộc', '0901000004', 0, 1),
+    ('staff1', '123', N'Đặng Phi Hùng',     '0901000001', 0, 1),
+    ('staff2', '123', N'Lê Bình An',        '0901000002', 0, 1),
+    ('staff3', '123', N'Đinh Ngọc Đại',     '0901000003', 0, 1),
+    ('staff4', '123', N'Đinh Tiến Lộc',     '0901000004', 0, 1),
     ('staff5', '123', N'Tôn Trần Triệu Vĩ', '0901000005', 0, 1);
 END
+ELSE
+BEGIN
+    UPDATE nhan_vien SET ho_ten = N'Đặng Phi Hùng'     WHERE ten_dang_nhap IN ('staff', 'staff1');
+    UPDATE nhan_vien SET ho_ten = N'Lê Bình An'        WHERE ten_dang_nhap = 'staff2';
+    UPDATE nhan_vien SET ho_ten = N'Đinh Ngọc Đại'     WHERE ten_dang_nhap = 'staff3';
+    UPDATE nhan_vien SET ho_ten = N'Đinh Tiến Lộc'     WHERE ten_dang_nhap = 'staff4';
+    UPDATE nhan_vien SET ho_ten = N'Tôn Trần Triệu Vĩ' WHERE ten_dang_nhap = 'staff5';
+END
 GO
 
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D201')
+-- 3. Đảm bảo đủ các phương thức thanh toán
+IF NOT EXISTS (SELECT 1 FROM the_thanh_toan WHERE ten_loai_the LIKE N'%Momo%')
+BEGIN
+    INSERT INTO the_thanh_toan (ten_loai_the, active) VALUES (N'Chuyển khoản / Momo', 1);
+END
+GO
+
+-- 4. Bổ sung các loại sản phẩm nếu chưa có
+IF NOT EXISTS (SELECT 1 FROM loai_san_pham WHERE id = 1) INSERT INTO loai_san_pham(ten_loai, active) VALUES (N'Bánh Mì Thịt', 1);
+IF NOT EXISTS (SELECT 1 FROM loai_san_pham WHERE id = 2) INSERT INTO loai_san_pham(ten_loai, active) VALUES (N'Bánh Mì Chay / Món Khác', 1);
+IF NOT EXISTS (SELECT 1 FROM loai_san_pham WHERE id = 3) INSERT INTO loai_san_pham(ten_loai, active) VALUES (N'Đồ Uống', 1);
+GO
+
+-- 5. Cập nhật / Bổ sung sản phẩm chuẩn Unicode
+UPDATE san_pham SET ten_sp = N'Bánh mì thịt nướng' WHERE id = 1;
+UPDATE san_pham SET ten_sp = N'Bánh mì xíu mại' WHERE id = 2;
+UPDATE san_pham SET ten_sp = N'Trà tắc giải nhiệt' WHERE id = 3;
+
+IF NOT EXISTS (SELECT 1 FROM san_pham WHERE ten_sp LIKE N'%chả lụa%')
+BEGIN
+    INSERT INTO san_pham (ten_sp, gia_co_ban, anh_sp, mo_ta, active, id_loai_sp) VALUES
+    (N'Bánh mì chả lụa', 20000, 'banh-mi-cha-lua.jpg', N'Bánh mì chả lụa pate thơm béo', 1, 1),
+    (N'Bánh mì gà xé', 22000, 'banh-mi-ga-xe.jpg', N'Bánh mì gà xé phay giòn rụm', 1, 1),
+    (N'Bánh mì ốp la pate', 18000, 'banh-mi-op-la.jpg', N'Bánh mì ốp la 2 trứng dốt pate', 1, 1),
+    (N'Bánh mì bò lá lốt', 25000, 'banh-mi-bo-la-lot.jpg', N'Bánh mì bò lá lốt nướng than hồng', 1, 1),
+    (N'Bánh mì chả cá', 20000, 'banh-mi-cha-ca.jpg', N'Bánh mì chả cá Nha Trang nóng hổi', 1, 1),
+    (N'Bánh mì đặc biệt', 30000, 'banh-mi-dac-biet.jpg', N'Bánh mì full topping đặc biệt hủ tiếu bánh mì', 1, 1),
+    (N'Cà phê sữa đá', 15000, 'ca-phe-sua.jpg', N'Cà phê pha phin đậm đà chuẩn vị Việt', 1, 3),
+    (N'Cà phê đen đá', 12000, 'ca-phe-den.jpg', N'Cà phê đen đá nguyên chất tỉnh táo', 1, 3),
+    (N'Trà đào cam sả', 20000, 'tra-dao-cam-sa.jpg', N'Trà đào cam sả thơm ngon mọng nước', 1, 3),
+    (N'Trà sữa truyền thống', 22000, 'tra-sua.jpg', N'Trà sữa nhà làm topping chân trâu', 1, 3),
+    (N'Nước sâm dứa thạch', 12000, 'nuoc-sam.jpg', N'Nước sâm dứa thạch nhà nấu', 1, 3),
+    (N'Nước ngọt (Coca/Pepsi)', 12000, 'nuoc-ngot.jpg', N'Nước ngọt lon mát lạnh', 1, 3),
+    (N'Bánh bao xá xíu', 18000, 'banh-bao-xa-xiu.jpg', N'Bánh bao nhân xá xíu trứng cút', 1, 2),
+    (N'Bánh bao chay', 12000, 'banh-bao-chay.jpg', N'Bánh bao nấm hạt nêm thanh tịnh', 1, 2),
+    (N'Há cảo hấp (4 viên)', 20000, 'ha-cao.jpg', N'Há cảo tôm thịt hấp nóng hổi', 1, 2),
+    (N'Xíu mại chén', 25000, 'xiu-mai-chen.jpg', N'Xíu mại chén chấm bánh mì giòn', 1, 2);
+END
+GO
+
+-- 6. Cập nhật / Bổ sung Toppings
+UPDATE toppings SET ten_nguyen_lieu = N'Trứng ốp la', don_vi_tinh = N'Quả', so_luong_ton = 50 WHERE id = 1;
+UPDATE toppings SET ten_nguyen_lieu = N'Pate nhà làm', don_vi_tinh = N'Phần', so_luong_ton = 50 WHERE id = 2;
+UPDATE toppings SET ten_nguyen_lieu = N'Chả lụa thêm', don_vi_tinh = N'Phần', so_luong_ton = 50 WHERE id = 3;
+UPDATE toppings SET ten_nguyen_lieu = N'Thịt nướng thêm', don_vi_tinh = N'Phần', so_luong_ton = 50 WHERE id = 4;
+
+IF NOT EXISTS (SELECT 1 FROM toppings WHERE ten_nguyen_lieu LIKE N'%Phô mai%')
+BEGIN
+    INSERT INTO toppings (ten_nguyen_lieu, gia_cong_them, so_luong_ton, don_vi_tinh, active) VALUES
+    (N'Phô mai Con Bò Cười', 5000, 50, N'Cái', 1),
+    (N'Bơ béo nhà làm', 3000, 50, N'Muỗng', 1),
+    (N'Gà xé thêm', 8000, 50, N'Phần', 1),
+    (N'Xá xíu thêm', 8000, 50, N'Phần', 1),
+    (N'Xúc xích Đức', 7000, 50, N'Cây', 1),
+    (N'Kim chi ăn kèm', 4000, 30, N'Hộp', 1);
+END
+GO
+
+-- ============================================================
+-- DỮ LIỆU MẪU HÓA ĐƠN 7 NGÀY GẦN NHẤT CHO DASHBOARD
+-- ============================================================
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD301')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D201', 50000, 'COMPLETED', id, 1, '2026-07-25 07:00:00'
+    SELECT 'HDUPD301', 50000, 'COMPLETED', id, 1, DATEADD(minute, -8220, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D201 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D201');
-    IF @ord_id_HD7D201 IS NOT NULL
+    DECLARE @ord_HDUPD301 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD301');
+    IF @ord_HDUPD301 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D201, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D201, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD301, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD301, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D202')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD302')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D202', 56000, 'COMPLETED', id, 2, '2026-07-25 09:13:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D202 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D202');
-    IF @ord_id_HD7D202 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D202, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D202, 3, 2, 20000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D203')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D203', 70000, 'COMPLETED', id, 1, '2026-07-25 11:26:00'
+    SELECT 'HDUPD302', 56000, 'COMPLETED', id, 2, DATEADD(minute, -8087, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D203 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D203');
-    IF @ord_id_HD7D203 IS NOT NULL
+    DECLARE @ord_HDUPD302 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD302');
+    IF @ord_HDUPD302 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D203, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D203, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD302, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD302, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D204')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD303')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D204', 50000, 'COMPLETED', id, 2, '2026-07-25 13:39:00'
+    SELECT 'HDUPD303', 70000, 'COMPLETED', id, 1, DATEADD(minute, -7954, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D204 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D204');
-    IF @ord_id_HD7D204 IS NOT NULL
+    DECLARE @ord_HDUPD303 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD303');
+    IF @ord_HDUPD303 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D204, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D204, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD303, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD303, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D205')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD304')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D205', 56000, 'COMPLETED', id, 1, '2026-07-25 15:52:00'
+    SELECT 'HDUPD304', 50000, 'COMPLETED', id, 2, DATEADD(minute, -7821, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D205 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D205');
-    IF @ord_id_HD7D205 IS NOT NULL
+    DECLARE @ord_HDUPD304 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD304');
+    IF @ord_HDUPD304 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D205, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D205, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD304, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD304, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D206')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD305')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D206', 70000, 'COMPLETED', id, 2, '2026-07-25 17:05:00'
+    SELECT 'HDUPD305', 56000, 'COMPLETED', id, 1, DATEADD(minute, -7688, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D206 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D206');
-    IF @ord_id_HD7D206 IS NOT NULL
+    DECLARE @ord_HDUPD305 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD305');
+    IF @ord_HDUPD305 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D206, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D206, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD305, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD305, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D207')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD306')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D207', 50000, 'COMPLETED', id, 1, '2026-07-25 08:18:00'
+    SELECT 'HDUPD306', 70000, 'COMPLETED', id, 2, DATEADD(minute, -7615, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D207 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D207');
-    IF @ord_id_HD7D207 IS NOT NULL
+    DECLARE @ord_HDUPD306 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD306');
+    IF @ord_HDUPD306 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D207, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D207, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD306, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD306, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D208')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD307')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D208', 56000, 'COMPLETED', id, 2, '2026-07-26 10:09:00'
+    SELECT 'HDUPD307', 56000, 'COMPLETED', id, 2, DATEADD(minute, -6591, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D208 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D208');
-    IF @ord_id_HD7D208 IS NOT NULL
+    DECLARE @ord_HDUPD307 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD307');
+    IF @ord_HDUPD307 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D208, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D208, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD307, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD307, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D209')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD308')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D209', 70000, 'COMPLETED', id, 1, '2026-07-26 12:22:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D209 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D209');
-    IF @ord_id_HD7D209 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D209, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D209, 3, 1, 10000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D210')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D210', 50000, 'COMPLETED', id, 2, '2026-07-26 14:35:00'
+    SELECT 'HDUPD308', 70000, 'COMPLETED', id, 1, DATEADD(minute, -6458, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D210 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D210');
-    IF @ord_id_HD7D210 IS NOT NULL
+    DECLARE @ord_HDUPD308 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD308');
+    IF @ord_HDUPD308 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D210, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D210, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD308, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD308, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D211')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD309')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D211', 56000, 'COMPLETED', id, 1, '2026-07-26 16:48:00'
+    SELECT 'HDUPD309', 50000, 'COMPLETED', id, 2, DATEADD(minute, -6325, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D211 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D211');
-    IF @ord_id_HD7D211 IS NOT NULL
+    DECLARE @ord_HDUPD309 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD309');
+    IF @ord_HDUPD309 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D211, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D211, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD309, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD309, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D212')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD310')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D212', 70000, 'COMPLETED', id, 2, '2026-07-26 07:01:00'
+    SELECT 'HDUPD310', 56000, 'COMPLETED', id, 1, DATEADD(minute, -6192, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D212 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D212');
-    IF @ord_id_HD7D212 IS NOT NULL
+    DECLARE @ord_HDUPD310 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD310');
+    IF @ord_HDUPD310 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D212, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D212, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD310, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD310, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D213')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD311')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D213', 50000, 'COMPLETED', id, 1, '2026-07-26 09:14:00'
+    SELECT 'HDUPD311', 70000, 'COMPLETED', id, 2, DATEADD(minute, -6779, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D213 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D213');
-    IF @ord_id_HD7D213 IS NOT NULL
+    DECLARE @ord_HDUPD311 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD311');
+    IF @ord_HDUPD311 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D213, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D213, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD311, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD311, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D214')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD312')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D214', 56000, 'COMPLETED', id, 2, '2026-07-26 11:27:00'
+    SELECT 'HDUPD312', 50000, 'COMPLETED', id, 1, DATEADD(minute, -6646, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D214 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D214');
-    IF @ord_id_HD7D214 IS NOT NULL
+    DECLARE @ord_HDUPD312 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD312');
+    IF @ord_HDUPD312 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D214, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D214, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD312, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD312, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D215')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD313')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D215', 70000, 'COMPLETED', id, 1, '2026-07-27 13:18:00'
+    SELECT 'HDUPD313', 70000, 'COMPLETED', id, 1, DATEADD(minute, -4962, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D215 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D215');
-    IF @ord_id_HD7D215 IS NOT NULL
+    DECLARE @ord_HDUPD313 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD313');
+    IF @ord_HDUPD313 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D215, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D215, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD313, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD313, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D216')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD314')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D216', 50000, 'COMPLETED', id, 2, '2026-07-27 15:31:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D216 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D216');
-    IF @ord_id_HD7D216 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D216, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D216, 3, 1, 10000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D217')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D217', 56000, 'COMPLETED', id, 1, '2026-07-27 17:44:00'
+    SELECT 'HDUPD314', 50000, 'COMPLETED', id, 2, DATEADD(minute, -4829, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D217 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D217');
-    IF @ord_id_HD7D217 IS NOT NULL
+    DECLARE @ord_HDUPD314 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD314');
+    IF @ord_HDUPD314 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D217, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D217, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD314, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD314, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D218')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD315')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D218', 70000, 'COMPLETED', id, 2, '2026-07-27 08:57:00'
+    SELECT 'HDUPD315', 56000, 'COMPLETED', id, 1, DATEADD(minute, -4696, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D218 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D218');
-    IF @ord_id_HD7D218 IS NOT NULL
+    DECLARE @ord_HDUPD315 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD315');
+    IF @ord_HDUPD315 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D218, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D218, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD315, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD315, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D219')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD316')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D219', 50000, 'COMPLETED', id, 1, '2026-07-27 10:10:00'
+    SELECT 'HDUPD316', 70000, 'COMPLETED', id, 2, DATEADD(minute, -5223, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D219 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D219');
-    IF @ord_id_HD7D219 IS NOT NULL
+    DECLARE @ord_HDUPD316 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD316');
+    IF @ord_HDUPD316 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D219, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D219, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD316, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD316, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D220')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD317')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D220', 56000, 'COMPLETED', id, 2, '2026-07-27 12:23:00'
+    SELECT 'HDUPD317', 50000, 'COMPLETED', id, 1, DATEADD(minute, -5150, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D220 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D220');
-    IF @ord_id_HD7D220 IS NOT NULL
+    DECLARE @ord_HDUPD317 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD317');
+    IF @ord_HDUPD317 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D220, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D220, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD317, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD317, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D221')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD318')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D221', 70000, 'COMPLETED', id, 1, '2026-07-27 14:36:00'
+    SELECT 'HDUPD318', 56000, 'COMPLETED', id, 2, DATEADD(minute, -5017, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D221 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D221');
-    IF @ord_id_HD7D221 IS NOT NULL
+    DECLARE @ord_HDUPD318 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD318');
+    IF @ord_HDUPD318 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D221, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D221, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD318, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD318, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D222')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD319')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D222', 50000, 'COMPLETED', id, 2, '2026-07-28 16:27:00'
+    SELECT 'HDUPD319', 50000, 'COMPLETED', id, 2, DATEADD(minute, -3333, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D222 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D222');
-    IF @ord_id_HD7D222 IS NOT NULL
+    DECLARE @ord_HDUPD319 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD319');
+    IF @ord_HDUPD319 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D222, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D222, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD319, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD319, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D223')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD320')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D223', 56000, 'COMPLETED', id, 1, '2026-07-28 07:40:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D223 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D223');
-    IF @ord_id_HD7D223 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D223, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D223, 3, 2, 20000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D224')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D224', 70000, 'COMPLETED', id, 2, '2026-07-28 09:53:00'
+    SELECT 'HDUPD320', 56000, 'COMPLETED', id, 1, DATEADD(minute, -3860, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D224 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D224');
-    IF @ord_id_HD7D224 IS NOT NULL
+    DECLARE @ord_HDUPD320 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD320');
+    IF @ord_HDUPD320 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D224, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D224, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD320, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD320, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D225')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD321')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D225', 50000, 'COMPLETED', id, 1, '2026-07-28 11:06:00'
+    SELECT 'HDUPD321', 70000, 'COMPLETED', id, 2, DATEADD(minute, -3727, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D225 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D225');
-    IF @ord_id_HD7D225 IS NOT NULL
+    DECLARE @ord_HDUPD321 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD321');
+    IF @ord_HDUPD321 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D225, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D225, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD321, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD321, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D226')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD322')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D226', 56000, 'COMPLETED', id, 2, '2026-07-28 13:19:00'
+    SELECT 'HDUPD322', 50000, 'COMPLETED', id, 1, DATEADD(minute, -3654, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D226 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D226');
-    IF @ord_id_HD7D226 IS NOT NULL
+    DECLARE @ord_HDUPD322 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD322');
+    IF @ord_HDUPD322 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D226, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D226, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD322, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD322, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D227')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD323')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D227', 70000, 'COMPLETED', id, 1, '2026-07-28 15:32:00'
+    SELECT 'HDUPD323', 56000, 'COMPLETED', id, 2, DATEADD(minute, -3521, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D227 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D227');
-    IF @ord_id_HD7D227 IS NOT NULL
+    DECLARE @ord_HDUPD323 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD323');
+    IF @ord_HDUPD323 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D227, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D227, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD323, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD323, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D228')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD324')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D228', 50000, 'COMPLETED', id, 2, '2026-07-28 17:45:00'
+    SELECT 'HDUPD324', 70000, 'COMPLETED', id, 1, DATEADD(minute, -3388, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D228 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D228');
-    IF @ord_id_HD7D228 IS NOT NULL
+    DECLARE @ord_HDUPD324 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD324');
+    IF @ord_HDUPD324 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D228, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D228, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD324, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD324, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D229')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD325')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D229', 56000, 'COMPLETED', id, 1, '2026-07-29 08:36:00'
+    SELECT 'HDUPD325', 56000, 'COMPLETED', id, 1, DATEADD(minute, -2364, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D229 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D229');
-    IF @ord_id_HD7D229 IS NOT NULL
+    DECLARE @ord_HDUPD325 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD325');
+    IF @ord_HDUPD325 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D229, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D229, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD325, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD325, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D230')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD326')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D230', 70000, 'COMPLETED', id, 2, '2026-07-29 10:49:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D230 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D230');
-    IF @ord_id_HD7D230 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D230, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D230, 3, 1, 10000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D231')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D231', 50000, 'COMPLETED', id, 1, '2026-07-29 12:02:00'
+    SELECT 'HDUPD326', 70000, 'COMPLETED', id, 2, DATEADD(minute, -2231, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D231 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D231');
-    IF @ord_id_HD7D231 IS NOT NULL
+    DECLARE @ord_HDUPD326 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD326');
+    IF @ord_HDUPD326 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D231, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D231, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD326, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD326, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D232')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD327')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D232', 56000, 'COMPLETED', id, 2, '2026-07-29 14:15:00'
+    SELECT 'HDUPD327', 50000, 'COMPLETED', id, 1, DATEADD(minute, -2158, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D232 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D232');
-    IF @ord_id_HD7D232 IS NOT NULL
+    DECLARE @ord_HDUPD327 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD327');
+    IF @ord_HDUPD327 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D232, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D232, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD327, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD327, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D233')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD328')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D233', 70000, 'COMPLETED', id, 1, '2026-07-29 16:28:00'
+    SELECT 'HDUPD328', 56000, 'COMPLETED', id, 2, DATEADD(minute, -2025, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D233 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D233');
-    IF @ord_id_HD7D233 IS NOT NULL
+    DECLARE @ord_HDUPD328 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD328');
+    IF @ord_HDUPD328 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D233, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D233, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD328, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD328, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D234')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD329')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D234', 50000, 'COMPLETED', id, 2, '2026-07-29 07:41:00'
+    SELECT 'HDUPD329', 70000, 'COMPLETED', id, 1, DATEADD(minute, -1892, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D234 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D234');
-    IF @ord_id_HD7D234 IS NOT NULL
+    DECLARE @ord_HDUPD329 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD329');
+    IF @ord_HDUPD329 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D234, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D234, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD329, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD329, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D235')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD330')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D235', 56000, 'COMPLETED', id, 1, '2026-07-29 09:54:00'
+    SELECT 'HDUPD330', 50000, 'COMPLETED', id, 2, DATEADD(minute, -2419, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D235 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D235');
-    IF @ord_id_HD7D235 IS NOT NULL
+    DECLARE @ord_HDUPD330 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD330');
+    IF @ord_HDUPD330 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D235, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D235, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD330, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD330, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D236')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD331')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D236', 70000, 'COMPLETED', id, 2, '2026-07-30 11:45:00'
+    SELECT 'HDUPD331', 70000, 'COMPLETED', id, 2, DATEADD(minute, -735, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D236 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D236');
-    IF @ord_id_HD7D236 IS NOT NULL
+    DECLARE @ord_HDUPD331 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD331');
+    IF @ord_HDUPD331 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D236, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D236, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD331, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD331, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D237')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD332')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D237', 50000, 'COMPLETED', id, 1, '2026-07-30 13:58:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D237 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D237');
-    IF @ord_id_HD7D237 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D237, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D237, 3, 1, 10000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D238')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D238', 56000, 'COMPLETED', id, 2, '2026-07-30 15:11:00'
+    SELECT 'HDUPD332', 50000, 'COMPLETED', id, 1, DATEADD(minute, -602, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D238 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D238');
-    IF @ord_id_HD7D238 IS NOT NULL
+    DECLARE @ord_HDUPD332 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD332');
+    IF @ord_HDUPD332 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D238, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D238, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD332, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD332, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D239')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD333')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D239', 70000, 'COMPLETED', id, 1, '2026-07-30 17:24:00'
+    SELECT 'HDUPD333', 56000, 'COMPLETED', id, 2, DATEADD(minute, -529, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D239 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D239');
-    IF @ord_id_HD7D239 IS NOT NULL
+    DECLARE @ord_HDUPD333 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD333');
+    IF @ord_HDUPD333 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D239, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D239, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD333, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD333, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D240')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD334')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D240', 50000, 'COMPLETED', id, 2, '2026-07-30 08:37:00'
+    SELECT 'HDUPD334', 70000, 'COMPLETED', id, 1, DATEADD(minute, -396, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D240 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D240');
-    IF @ord_id_HD7D240 IS NOT NULL
+    DECLARE @ord_HDUPD334 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD334');
+    IF @ord_HDUPD334 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D240, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D240, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD334, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD334, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D241')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD335')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D241', 56000, 'COMPLETED', id, 1, '2026-07-30 10:50:00'
+    SELECT 'HDUPD335', 50000, 'COMPLETED', id, 2, DATEADD(minute, -923, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D241 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D241');
-    IF @ord_id_HD7D241 IS NOT NULL
+    DECLARE @ord_HDUPD335 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD335');
+    IF @ord_HDUPD335 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D241, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D241, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD335, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD335, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D242')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD336')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D242', 70000, 'COMPLETED', id, 2, '2026-07-30 12:03:00'
+    SELECT 'HDUPD336', 56000, 'COMPLETED', id, 1, DATEADD(minute, -790, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D242 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D242');
-    IF @ord_id_HD7D242 IS NOT NULL
+    DECLARE @ord_HDUPD336 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD336');
+    IF @ord_HDUPD336 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D242, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D242, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD336, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD336, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D243')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD337')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D243', 50000, 'COMPLETED', id, 1, '2026-07-31 14:54:00'
+    SELECT 'HDUPD337', 50000, 'COMPLETED', id, 1, DATEADD(minute, 894, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'admin';
 
-    DECLARE @ord_id_HD7D243 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D243');
-    IF @ord_id_HD7D243 IS NOT NULL
+    DECLARE @ord_HDUPD337 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD337');
+    IF @ord_HDUPD337 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D243, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D243, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD337, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD337, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D244')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD338')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D244', 56000, 'COMPLETED', id, 2, '2026-07-31 16:07:00'
-    FROM nhan_vien WHERE ten_dang_nhap = 'staff';
-
-    DECLARE @ord_id_HD7D244 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D244');
-    IF @ord_id_HD7D244 IS NOT NULL
-    BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D244, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D244, 3, 2, 20000);
-    END
-END
-GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D245')
-BEGIN
-    INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D245', 70000, 'COMPLETED', id, 1, '2026-07-31 07:20:00'
+    SELECT 'HDUPD338', 56000, 'COMPLETED', id, 2, DATEADD(minute, 967, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff1';
 
-    DECLARE @ord_id_HD7D245 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D245');
-    IF @ord_id_HD7D245 IS NOT NULL
+    DECLARE @ord_HDUPD338 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD338');
+    IF @ord_HDUPD338 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D245, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D245, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD338, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD338, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D246')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD339')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D246', 50000, 'COMPLETED', id, 2, '2026-07-31 09:33:00'
+    SELECT 'HDUPD339', 70000, 'COMPLETED', id, 1, DATEADD(minute, 440, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff2';
 
-    DECLARE @ord_id_HD7D246 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D246');
-    IF @ord_id_HD7D246 IS NOT NULL
+    DECLARE @ord_HDUPD339 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD339');
+    IF @ord_HDUPD339 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D246, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D246, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD339, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD339, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D247')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD340')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D247', 56000, 'COMPLETED', id, 1, '2026-07-31 11:46:00'
+    SELECT 'HDUPD340', 50000, 'COMPLETED', id, 2, DATEADD(minute, 573, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff3';
 
-    DECLARE @ord_id_HD7D247 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D247');
-    IF @ord_id_HD7D247 IS NOT NULL
+    DECLARE @ord_HDUPD340 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD340');
+    IF @ord_HDUPD340 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D247, 2, 2, 36000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D247, 3, 2, 20000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD340, 1, 2, 40000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD340, 3, 1, 10000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D248')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD341')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D248', 70000, 'COMPLETED', id, 2, '2026-07-31 13:59:00'
+    SELECT 'HDUPD341', 56000, 'COMPLETED', id, 1, DATEADD(minute, 706, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff4';
 
-    DECLARE @ord_id_HD7D248 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D248');
-    IF @ord_id_HD7D248 IS NOT NULL
+    DECLARE @ord_HDUPD341 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD341');
+    IF @ord_HDUPD341 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D248, 1, 3, 60000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D248, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD341, 2, 2, 36000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD341, 3, 2, 20000);
     END
 END
 GO
-IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HD7D249')
+IF NOT EXISTS (SELECT 1 FROM don_hang WHERE ma_so_don_hang = 'HDUPD342')
 BEGIN
     INSERT INTO don_hang(ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao)
-    SELECT 'HD7D249', 50000, 'COMPLETED', id, 1, '2026-07-31 15:12:00'
+    SELECT 'HDUPD342', 70000, 'COMPLETED', id, 2, DATEADD(minute, 839, CAST(CAST(GETDATE() AS DATE) AS DATETIME))
     FROM nhan_vien WHERE ten_dang_nhap = 'staff5';
 
-    DECLARE @ord_id_HD7D249 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HD7D249');
-    IF @ord_id_HD7D249 IS NOT NULL
+    DECLARE @ord_HDUPD342 INT = (SELECT id FROM don_hang WHERE ma_so_don_hang = 'HDUPD342');
+    IF @ord_HDUPD342 IS NOT NULL
     BEGIN
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D249, 1, 2, 40000);
-        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_id_HD7D249, 3, 1, 10000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD342, 1, 3, 60000);
+        INSERT INTO chi_tiet_don_hang(order_id, product_id, so_luong, gia_ban) VALUES (@ord_HDUPD342, 3, 1, 10000);
     END
 END
+GO
+
+PRINT N'Cập nhật CSDL webbanhmi hoàn tất thành công!';
 GO
