@@ -42,7 +42,7 @@ public class JdbcUtil {
         }
         for (int i = 0; i < values.length; i++) {
             if (values[i] == null) {
-                stmt.setNull(i + 1, Types.INTEGER);
+                stmt.setNull(i + 1, Types.NULL);
             } else {
                 stmt.setObject(i + 1, values[i]);
             }

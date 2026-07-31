@@ -14,8 +14,9 @@ public class NhanVienDAO implements CrudDAO<NhanVien, Integer> {
     public int create(NhanVien entity) {
         String sql = "INSERT INTO nhan_vien(ten_dang_nhap, mat_khau, ho_ten, dien_thoai, vai_tro, active) VALUES (?, ?, ?, ?, ?, ?)";
         try {
-            return JdbcUtil.executeUpdate(sql, entity.getTenDangNhap(), entity.getMatKhau(), entity.getHoTen(),
-                    entity.getDienThoai(), entity.isVaiTro(), entity.isActive());
+            String phone = (entity.getDienThoai() != null && !entity.getDienThoai().trim().isEmpty()) ? entity.getDienThoai().trim() : null;
+            return JdbcUtil.executeUpdate(sql, entity.getTenDangNhap().trim(), entity.getMatKhau(), entity.getHoTen().trim(),
+                    phone, entity.isVaiTro(), entity.isActive());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -26,8 +27,9 @@ public class NhanVienDAO implements CrudDAO<NhanVien, Integer> {
     public int update(NhanVien entity) {
         String sql = "UPDATE nhan_vien SET ten_dang_nhap=?, mat_khau=?, ho_ten=?, dien_thoai=?, vai_tro=?, active=? WHERE id=?";
         try {
-            return JdbcUtil.executeUpdate(sql, entity.getTenDangNhap(), entity.getMatKhau(), entity.getHoTen(),
-                    entity.getDienThoai(), entity.isVaiTro(), entity.isActive(), entity.getId());
+            String phone = (entity.getDienThoai() != null && !entity.getDienThoai().trim().isEmpty()) ? entity.getDienThoai().trim() : null;
+            return JdbcUtil.executeUpdate(sql, entity.getTenDangNhap().trim(), entity.getMatKhau(), entity.getHoTen().trim(),
+                    phone, entity.isVaiTro(), entity.isActive(), entity.getId());
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -67,14 +69,40 @@ public class NhanVienDAO implements CrudDAO<NhanVien, Integer> {
         }
     }
 
+    public boolean isTenDangNhapExists(String tenDangNhap, Integer excludeId) {
+        if (tenDangNhap == null || tenDangNhap.trim().isEmpty()) return false;
+        String sql = excludeId != null 
+            ? "SELECT COUNT(*) FROM nhan_vien WHERE ten_dang_nhap = ? AND id <> ?"
+            : "SELECT COUNT(*) FROM nhan_vien WHERE ten_dang_nhap = ?";
+        try (QueryResult qr = excludeId != null ? JdbcUtil.executeQuery(sql, tenDangNhap.trim(), excludeId) : JdbcUtil.executeQuery(sql, tenDangNhap.trim())) {
+            ResultSet rs = qr.getResultSet();
+            if (rs.next()) return rs.getInt(1) > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean isDienThoaiExists(String dienThoai, Integer excludeId) {
+        if (dienThoai == null || dienThoai.trim().isEmpty()) return false;
+        String sql = excludeId != null
+            ? "SELECT COUNT(*) FROM nhan_vien WHERE dien_thoai = ? AND id <> ?"
+            : "SELECT COUNT(*) FROM nhan_vien WHERE dien_thoai = ?";
+        try (QueryResult qr = excludeId != null ? JdbcUtil.executeQuery(sql, dienThoai.trim(), excludeId) : JdbcUtil.executeQuery(sql, dienThoai.trim())) {
+            ResultSet rs = qr.getResultSet();
+            if (rs.next()) return rs.getInt(1) > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     @Override
     public List<NhanVien> findAll() {
-        // Lấy tất cả nhân viên sắp xếp theo ID tăng dần
         String sql = "SELECT * FROM nhan_vien ORDER BY id ASC";
         return findBySql(sql);
     }
 
-    /** Chỉ lấy nhân viên đang active (dùng cho dashboard thống kê) */
     public List<NhanVien> findAllActive() {
         String sql = "SELECT * FROM nhan_vien WHERE active=1 ORDER BY id ASC";
         return findBySql(sql);

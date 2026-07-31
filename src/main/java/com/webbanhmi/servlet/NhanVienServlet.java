@@ -36,11 +36,12 @@ public class NhanVienServlet extends HttpServlet {
         response.setCharacterEncoding("UTF-8");
 
         String uri = request.getRequestURI();
-        
+        boolean isUpdatedSuccessfully = false;
+
         if (uri.contains("/add")) {
             create(request);
         } else if (uri.contains("/edit")) {
-            update(request);
+            isUpdatedSuccessfully = update(request);
         } else if (uri.contains("/delete")) {
             delete(request);
         } else if (uri.contains("/toggle")) {
@@ -48,7 +49,7 @@ public class NhanVienServlet extends HttpServlet {
         }
 
         int id = ParamUtil.getInt(request, "id");
-        if (id > 0 && !uri.contains("/delete") && !uri.contains("/toggle")) {
+        if (id > 0 && !uri.contains("/delete") && !uri.contains("/toggle") && !isUpdatedSuccessfully) {
             NhanVien nv = nhanVienDAO.findById(id);
             if (nv != null) {
                 request.setAttribute("nhanVien", nv);
@@ -68,57 +69,86 @@ public class NhanVienServlet extends HttpServlet {
         boolean active = "1".equals(ParamUtil.getString(request, "active", "1"));
 
         if (tenDangNhap.isEmpty() || matKhau.isEmpty() || hoTen.isEmpty()) {
-            request.setAttribute("error", "Vui lòng nhập đầy đủ thông tin bắt buộc");
+            request.setAttribute("error", "Vui lòng nhập đầy đủ các thông tin bắt buộc (*)");
             return;
         }
+
+        if (nhanVienDAO.isTenDangNhapExists(tenDangNhap, null)) {
+            request.setAttribute("error", "Tên đăng nhập [" + tenDangNhap + "] đã tồn tại trong hệ thống");
+            return;
+        }
+
+        if (!dienThoai.trim().isEmpty() && nhanVienDAO.isDienThoaiExists(dienThoai, null)) {
+            request.setAttribute("error", "Số điện thoại [" + dienThoai + "] đã được đăng ký bởi nhân viên khác");
+            return;
+        }
+
         NhanVien nv = new NhanVien(null, tenDangNhap, matKhau, hoTen, dienThoai, vaiTro, active);
         int rs = nhanVienDAO.create(nv);
         if (rs > 0) {
-            request.setAttribute("message", "Thêm nhân viên thành công");
+            request.setAttribute("message", "Thêm nhân viên [" + hoTen + "] thành công");
         } else {
-            request.setAttribute("error", "Thêm nhân viên thất bại (tên đăng nhập hoặc SĐT có thể đã tồn tại)");
+            request.setAttribute("error", "Thêm nhân viên thất bại. Vui lòng kiểm tra lại thông tin!");
         }
     }
 
-    private void update(HttpServletRequest request) {
+    private boolean update(HttpServletRequest request) {
         int id = ParamUtil.getInt(request, "id");
         String hoTen = ParamUtil.getString(request, "hoTen");
+        String dienThoai = ParamUtil.getString(request, "dienThoai");
+
+        if (id <= 0) {
+            request.setAttribute("error", "Không xác định được mã nhân viên cần sửa");
+            return false;
+        }
+
         if (hoTen.isEmpty()) {
-            request.setAttribute("error", "Họ tên không được để trống");
-            return;
+            request.setAttribute("error", "Họ và tên không được để trống");
+            return false;
+        }
+
+        if (!dienThoai.trim().isEmpty() && nhanVienDAO.isDienThoaiExists(dienThoai, id)) {
+            request.setAttribute("error", "Số điện thoại [" + dienThoai + "] đã trùng với nhân viên khác");
+            return false;
         }
 
         NhanVien nv = nhanVienDAO.findById(id);
         if (nv != null) {
             nv.setHoTen(hoTen);
-            nv.setDienThoai(ParamUtil.getString(request, "dienThoai"));
+            nv.setDienThoai(dienThoai);
             nv.setVaiTro("1".equals(request.getParameter("vaiTro")));
             nv.setActive("1".equals(ParamUtil.getString(request, "active", nv.isActive() ? "1" : "0")));
-            
+
             String matKhauMoi = ParamUtil.getString(request, "matKhau");
             if (!matKhauMoi.isEmpty()) {
                 nv.setMatKhau(matKhauMoi);
             }
+
             int rs = nhanVienDAO.update(nv);
             if (rs > 0) {
-                request.setAttribute("message", "Cập nhật nhân viên thành công");
+                request.setAttribute("message", "Đã cập nhật thông tin nhân viên [" + hoTen + "] thành công!");
+                return true;
             } else {
                 request.setAttribute("error", "Cập nhật nhân viên thất bại");
+                request.setAttribute("nhanVien", nv);
+                return false;
             }
-            request.setAttribute("nhanVien", nv);
         } else {
-            request.setAttribute("error", "Không tìm thấy thông tin nhân viên");
+            request.setAttribute("error", "Không tìm thấy thông tin nhân viên trong CSDL");
+            return false;
         }
     }
 
     private void delete(HttpServletRequest request) {
         int id = ParamUtil.getInt(request, "id");
         if (id > 0) {
+            NhanVien nv = nhanVienDAO.findById(id);
+            String name = (nv != null) ? nv.getHoTen() : "";
             boolean isHardDeleted = nhanVienDAO.hardDelete(id);
             if (isHardDeleted) {
-                request.setAttribute("message", "Đã xóa vĩnh viễn nhân viên khỏi hệ thống");
+                request.setAttribute("message", "Đã xóa vĩnh viễn nhân viên [" + name + "] khỏi hệ thống");
             } else {
-                request.setAttribute("message", "Nhân viên đã có lịch sử hóa đơn nên hệ thống đã chuyển sang trạng thái Vô Hiệu Hóa (Inactive)");
+                request.setAttribute("message", "Nhân viên [" + name + "] đã có lịch sử đơn hàng nên hệ thống đã chuyển sang trạng thái Vô Hiệu Hóa (Inactive)");
             }
         }
     }
@@ -126,9 +156,11 @@ public class NhanVienServlet extends HttpServlet {
     private void toggle(HttpServletRequest request) {
         int id = ParamUtil.getInt(request, "id");
         if (id > 0) {
+            NhanVien nv = nhanVienDAO.findById(id);
             int rs = nhanVienDAO.toggleActive(id);
-            if (rs > 0) {
-                request.setAttribute("message", "Đã thay đổi trạng thái hoạt động của nhân viên");
+            if (rs > 0 && nv != null) {
+                String statusStr = nv.isActive() ? "Vô Hiệu Hóa (Inactive)" : "Kích Hoạt (Active)";
+                request.setAttribute("message", "Đã chuyển trạng thái tài khoản [" + nv.getHoTen() + "] sang " + statusStr);
             }
         }
     }
