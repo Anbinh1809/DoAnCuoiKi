@@ -1,7 +1,6 @@
 package com.webbanhmi.servlet;
 
 import java.io.IOException;
-import java.util.List;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -48,8 +47,10 @@ public class SanPhamServlet extends HttpServlet {
         String tenSp = ParamUtil.getString(request, "tenSp");
         int giaCoBan = ParamUtil.getInt(request, "giaCoBan");
         int idLoai = ParamUtil.getInt(request, "idLoaiSp");
-        String anhSp = ParamUtil.getString(request, "anhSp");
+        String anhSp = ParamUtil.getString(request, "anhSp", "default.jpg");
+        if (anhSp.trim().isEmpty()) anhSp = "default.jpg";
         String moTa = ParamUtil.getString(request, "moTa");
+        
         if (tenSp.isEmpty() || giaCoBan <= 0) {
             request.setAttribute("error", "Tên sản phẩm và giá không được để trống");
             return;
@@ -75,12 +76,15 @@ public class SanPhamServlet extends HttpServlet {
             sp.setTenSp(tenSp);
             sp.setGiaCoBan(giaCoBan);
             sp.setIdLoaiSp(ParamUtil.getInt(request, "idLoaiSp"));
-            sp.setAnhSp(ParamUtil.getString(request, "anhSp"));
+            String anhSp = ParamUtil.getString(request, "anhSp");
+            if (!anhSp.trim().isEmpty()) {
+                sp.setAnhSp(anhSp);
+            }
             sp.setMoTa(ParamUtil.getString(request, "moTa"));
             sp.setActive(!"0".equals(request.getParameter("active")));
             int rs = sanPhamDAO.update(sp);
-            if (rs > 0) request.setAttribute("message", "Cập nhật thành công");
-            else request.setAttribute("error", "Cập nhật thất bại");
+            if (rs > 0) request.setAttribute("message", "Cập nhật sản phẩm thành công");
+            else request.setAttribute("error", "Cập nhật sản phẩm thất bại");
             request.setAttribute("sanPham", sp);
         }
     }
@@ -89,7 +93,7 @@ public class SanPhamServlet extends HttpServlet {
         int id = ParamUtil.getInt(request, "id");
         if (id > 0) {
             sanPhamDAO.delete(id);
-            request.setAttribute("message", "Đã ẩn sản phẩm");
+            request.setAttribute("message", "Đã ẩn sản phẩm khỏi menu");
         }
     }
 }

@@ -49,10 +49,6 @@
                             <input type="number" name="giaCoBan" class="form-control" value="${sanPham.giaCoBan}" placeholder="20000" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Tên File Ảnh</label>
-                            <input type="text" name="anhSp" class="form-control" value="${sanPham.anhSp}" placeholder="banh-mi.jpg">
-                        </div>
-                        <div class="form-group">
                             <label class="form-label">Mô Tả</label>
                             <textarea name="moTa" class="form-control" rows="3" placeholder="Mô tả ngắn về sản phẩm...">${sanPham.moTa}</textarea>
                         </div>
