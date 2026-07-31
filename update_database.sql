@@ -60,11 +60,11 @@ GO
 IF NOT EXISTS (SELECT 1 FROM nhan_vien WHERE ten_dang_nhap = 'staff1')
 BEGIN
     INSERT INTO nhan_vien (ten_dang_nhap, mat_khau, ho_ten, dien_thoai, vai_tro, active) VALUES
-    ('staff1', '123', N'Nguyễn Thị An', '0901000001', 0, 1),
-    ('staff2', '123', N'Trần Văn Bình', '0901000002', 0, 1),
-    ('staff3', '123', N'Lê Thị Cúc', '0901000003', 0, 1),
-    ('staff4', '123', N'Phạm Văn Dũng', '0901000004', 0, 1),
-    ('staff5', '123', N'Hoàng Thị Em', '0901000005', 0, 1);
+    ('staff1', '123', N'Đặng Phi Hùng', '0901000001', 0, 1),
+    ('staff2', '123', N'Lê Bình An', '0901000002', 0, 1),
+    ('staff3', '123', N'Đinh Ngọc Đại', '0901000003', 0, 1),
+    ('staff4', '123', N'Đinh Tiến Lộc', '0901000004', 0, 1),
+    ('staff5', '123', N'Tôn Trần Triệu Vĩ', '0901000005', 0, 1);
 END
 GO
 

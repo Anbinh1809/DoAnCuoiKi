@@ -7,18 +7,18 @@ import java.sql.Statement;
 
 public class FixDbData {
     public static void main(String[] args) {
-        System.out.println("Starting Database Data & Unicode Repair...");
+        System.out.println("Starting Database Staff Names & Unicode Update...");
         try (Connection conn = JdbcUtil.getConnection()) {
             
             // 1. Fix nhan_vien names
             String[][] staffData = {
                 {"admin", "Quản Trị Viên"},
                 {"staff", "Đặng Phi Hùng"},
-                {"staff1", "Nguyễn Thị An"},
-                {"staff2", "Trần Văn Bình"},
-                {"staff3", "Lê Thị Cúc"},
-                {"staff4", "Phạm Văn Dũng"},
-                {"staff5", "Hoàng Thị Em"}
+                {"staff1", "Đặng Phi Hùng"},
+                {"staff2", "Lê Bình An"},
+                {"staff3", "Đinh Ngọc Đại"},
+                {"staff4", "Đinh Tiến Lộc"},
+                {"staff5", "Tôn Trần Triệu Vĩ"}
             };
 
             for (String[] st : staffData) {
@@ -29,7 +29,7 @@ public class FixDbData {
                     stmt.executeUpdate();
                 }
             }
-            System.out.println("✓ Updated nhan_vien names with correct Unicode.");
+            System.out.println("✓ Updated nhan_vien names to: Đặng Phi Hùng, Lê Bình An, Đinh Ngọc Đại, Đinh Tiến Lộc, Tôn Trần Triệu Vĩ.");
 
             // 2. Fix loai_san_pham names
             String[][] loaiData = {
@@ -46,7 +46,6 @@ public class FixDbData {
                     stmt.executeUpdate();
                 }
             }
-            System.out.println("✓ Updated loai_san_pham names with correct Unicode.");
 
             // 3. Fix san_pham names & descriptions
             Object[][] spData = {
@@ -80,7 +79,6 @@ public class FixDbData {
                 int price = (int) sp[2];
                 String img = (String) sp[3];
                 String desc = (String) sp[4];
-                int idLoai = (int) sp[5];
 
                 String checkSql = "SELECT COUNT(*) FROM san_pham WHERE id = ?";
                 boolean exists = false;
@@ -100,19 +98,8 @@ public class FixDbData {
                         ustmt.setInt(5, id);
                         ustmt.executeUpdate();
                     }
-                } else {
-                    String insertSql = "INSERT INTO san_pham (ten_sp, gia_co_ban, anh_sp, mo_ta, active, id_loai_sp) VALUES (?, ?, ?, ?, 1, ?)";
-                    try (PreparedStatement istmt = conn.prepareStatement(insertSql)) {
-                        istmt.setNString(1, name);
-                        istmt.setInt(2, price);
-                        istmt.setString(3, img);
-                        istmt.setNString(4, desc);
-                        istmt.setInt(5, idLoai);
-                        istmt.executeUpdate();
-                    }
                 }
             }
-            System.out.println("✓ Updated san_pham names & descriptions with correct Unicode.");
 
             // 4. Fix toppings table
             Object[][] toppingData = {
@@ -153,67 +140,10 @@ public class FixDbData {
                         ustmt.setInt(5, id);
                         ustmt.executeUpdate();
                     }
-                } else {
-                    String insertSql = "INSERT INTO toppings (ten_nguyen_lieu, gia_cong_them, so_luong_ton, don_vi_tinh, active) VALUES (?, ?, ?, ?, 1)";
-                    try (PreparedStatement istmt = conn.prepareStatement(insertSql)) {
-                        istmt.setNString(1, name);
-                        istmt.setInt(2, price);
-                        istmt.setInt(3, qty);
-                        istmt.setNString(4, unit);
-                        istmt.executeUpdate();
-                    }
                 }
             }
-            System.out.println("✓ Updated toppings with correct Unicode and stock quantities.");
 
-            // 5. Populate sample orders for 7 days
-            int[] staffIds = {1, 5, 6, 7, 8, 9}; // admin, staff1, staff2, staff3, staff4, staff5
-            String[] datesArr = {"2026-07-25", "2026-07-26", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31"};
-
-            int ordCount = 800;
-            for (String d : datesArr) {
-                for (int stId : staffIds) {
-                    ordCount++;
-                    String maHd = "HDFIX" + ordCount;
-
-                    String chkOrd = "SELECT COUNT(*) FROM don_hang WHERE ma_so_don_hang = ?";
-                    try (PreparedStatement cstmt = conn.prepareStatement(chkOrd)) {
-                        cstmt.setString(1, maHd);
-                        ResultSet rs = cstmt.executeQuery();
-                        if (rs.next() && rs.getInt(1) > 0) continue;
-                    }
-
-                    int total = 45000 + (ordCount % 5) * 10000;
-                    String dtStr = d + " " + String.format("%02d:%02d:00", 8 + (ordCount % 9), (ordCount * 17) % 60);
-
-                    String insOrd = "INSERT INTO don_hang (ma_so_don_hang, tong_tien, trang_thai, id_nhan_vien, id_the, ngay_tao) VALUES (?, ?, 'COMPLETED', ?, 1, ?)";
-                    try (PreparedStatement istmt = conn.prepareStatement(insOrd, Statement.RETURN_GENERATED_KEYS)) {
-                        istmt.setString(1, maHd);
-                        istmt.setInt(2, total);
-                        istmt.setInt(3, stId);
-                        istmt.setString(4, dtStr);
-                        istmt.executeUpdate();
-
-                        try (ResultSet rk = istmt.getGeneratedKeys()) {
-                            if (rk.next()) {
-                                int newOrdId = rk.getInt(1);
-                                String insItem1 = "INSERT INTO chi_tiet_don_hang (order_id, product_id, so_luong, gia_ban) VALUES (?, 1, 2, 40000)";
-                                try (PreparedStatement itmStmt1 = conn.prepareStatement(insItem1)) {
-                                    itmStmt1.setInt(1, newOrdId);
-                                    itmStmt1.executeUpdate();
-                                }
-                                String insItem2 = "INSERT INTO chi_tiet_don_hang (order_id, product_id, so_luong, gia_ban) VALUES (?, 3, 1, 10000)";
-                                try (PreparedStatement itmStmt2 = conn.prepareStatement(insItem2)) {
-                                    itmStmt2.setInt(1, newOrdId);
-                                    itmStmt2.executeUpdate();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            System.out.println("✓ Updated don_hang with 7-day rich orders for all staff members.");
-            System.out.println("Database Repair & Data Population Complete Success!");
+            System.out.println("Database Staff Names Update Successful!");
 
         } catch (Exception e) {
             e.printStackTrace();
