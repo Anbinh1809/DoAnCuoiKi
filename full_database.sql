@@ -40,6 +40,8 @@ CREATE TABLE toppings (
     id INT IDENTITY(1,1) PRIMARY KEY,
     ten_nguyen_lieu NVARCHAR(250) NOT NULL,
     gia_cong_them INT NOT NULL DEFAULT 0,
+    so_luong_ton INT NOT NULL DEFAULT 50,
+    don_vi_tinh NVARCHAR(50) NOT NULL DEFAULT N'Phần',
     active BIT NOT NULL DEFAULT 1
 );
 
