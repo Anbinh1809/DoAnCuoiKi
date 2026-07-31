@@ -44,21 +44,19 @@
 
 ---
 
-## 🗄️ Cấu Trúc Cơ Sở Dữ Liệu & Hướng Dẫn Cài Đặt
+## 🗄️ Hướng Dẫn Cài Đặt CSDL (DUY NHẤT 1 FILE SQL MASTER)
 
-Dự án đi kèm 2 file kịch bản SQL Server được chuẩn hóa:
+Dự án sử dụng **DUY NHẤT 1 FILE SQL MASTER HỢP NHẤT** cực kỳ thông minh:
+👉 **[full_database.sql](file:///c:/Users/PC/eclipse-workspace/DoAnCuoiKi-main/DoAnCuoiKi-main/DoAnCuoiKi-main/full_database.sql)**
 
-1. **[full_database.sql](file:///c:/Users/PC/eclipse-workspace/DoAnCuoiKi-main/DoAnCuoiKi-main/DoAnCuoiKi-main/full_database.sql)**: 
-   - Dùng để tạo mới CSDL `webbanhmi` từ đầu trên SQL Server.
-   - Bao gồm toàn bộ 8 bảng chuẩn, dữ liệu thực đơn, tồn kho topping và 138 hóa đơn mẫu 7 ngày.
+### ⚡ Tính năng tự động thông minh của `full_database.sql`:
+- **Đối với máy mới (chưa có CSDL)**: Tự động khởi tạo CSDL `webbanhmi`, tạo đủ 8 bảng, 22 sản phẩm, 10 nguyên liệu kho, 6 tài khoản nhân viên và nạp sẵn dữ liệu hóa đơn mẫu 7 ngày.
+- **Đối với máy đã có CSDL từ trước**: Tự động kiểm tra và nâng cấp bổ sung các cột còn thiếu, chuẩn hóa tên nhân viên và nạp dữ liệu hóa đơn 7 ngày mà **không làm mất dữ liệu cũ**.
 
-2. **[update_database.sql](file:///c:/Users/PC/eclipse-workspace/DoAnCuoiKi-main/DoAnCuoiKi-main/DoAnCuoiKi-main/update_database.sql)**: 
-   - Dùng để cập nhật an toàn cho CSDL đã có sẵn trên máy (bổ sung cột `so_luong_ton`, `don_vi_tinh` và nạp dữ liệu mẫu 7 ngày).
-
-### 🚀 Hướng dẫn nạp CSDL trên SQL Server:
+### 🚀 Cách chạy trên mọi máy:
 1. Mở **SQL Server Management Studio (SSMS)**.
-2. Mở file `full_database.sql` (hoặc `update_database.sql`).
-3. Nhấn **Execute (F5)** để thực thi.
+2. Mở duy nhất file **`full_database.sql`**.
+3. Nhấn **Execute (F5)** (Sẽ thấy thông báo `===> TẠO & NẠP DỮ LIỆU CSDL WEBBANHMI HOÀN TẤT THÀNH CÔNG! <===`).
 
 ---
 
